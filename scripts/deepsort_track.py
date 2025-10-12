@@ -13,11 +13,15 @@ from pathlib import Path
 from collections import defaultdict
 
 try:
-    from deep_sort_realtime import DeepSort
+    from deep_sort_realtime.deepsort_tracker import DeepSort
 except ImportError:
-    import subprocess
-    subprocess.check_call(["pip", "install", "deep-sort-realtime"])
-    from deep_sort_realtime import DeepSort
+    try:
+        import subprocess
+        subprocess.check_call(["pip", "install", "deep-sort-realtime"])
+        from deep_sort_realtime.deepsort_tracker import DeepSort
+    except ImportError:
+        # Fallback to alternative import
+        from deep_sort_realtime import DeepSort
 
 class DeepSORTTracker:
     def __init__(self, max_age=50, n_init=3):
@@ -47,7 +51,9 @@ class DeepSORTTracker:
                 
             track_id = track.track_id
             x1, y1, x2, y2 = map(int, track.to_ltrb())
-            confidence = getattr(track, 'det_conf', 1.0)
+            confidence = getattr(track, 'det_conf', None)
+            if confidence is None:
+                confidence = 1.0
             
             track_result = {
                 'track_id': track_id,
