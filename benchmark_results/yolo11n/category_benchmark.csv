@@ -1,0 +1,5 @@
+split,category,total_videos,total_time,avg_time_per_video,total_detections,avg_detections_per_video
+train,normal,8,71.35629224777222,8.919536530971527,65226,8153.25
+train,abnormal_physical,7,162.28249216079712,23.18321316582816,66892,9556.0
+train,abnormal_biological,1,3.209294319152832,3.209294319152832,1907,1907.0
+train,abnormal,4,132.9280240535736,33.2320060133934,37782,9445.5

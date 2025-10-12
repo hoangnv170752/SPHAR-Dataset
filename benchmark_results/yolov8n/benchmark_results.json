@@ -1,0 +1,266 @@
+{
+  "dataset_info": {
+    "dataset_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset",
+    "splits_processed": [
+      "train"
+    ],
+    "total_videos": 6924,
+    "sampled_videos": 20,
+    "sample_size": 20,
+    "dataset_structure": {
+      "train": {
+        "abnormal_biological": 212,
+        "abnormal_physical": 958,
+        "abnormal": 1151,
+        "normal": 4603
+      }
+    },
+    "timestamp": "2025-10-12 21:40:51"
+  },
+  "video_results": {
+    "train_normal_train_normal_walking_okutama_2.2.2_Walking_5": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/normal/train_normal_walking_okutama_2.2.2_Walking_5.mp4",
+      "split": "train",
+      "category": "normal",
+      "processing_time": 3.4992964267730713,
+      "total_frames": 180,
+      "total_detections": 15,
+      "fps_achieved": 57.19975619208093,
+      "avg_detections_per_frame": 0.08333333333333333
+    },
+    "train_abnormal_physical_train_abnormal_physical_stealing_uccrime_Shoplifting054_x264": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/abnormal_physical/train_abnormal_physical_stealing_uccrime_Shoplifting054_x264.mp4",
+      "split": "train",
+      "category": "abnormal_physical",
+      "processing_time": 14.06751036643982,
+      "total_frames": 1025,
+      "total_detections": 1350,
+      "fps_achieved": 72.08929246139498,
+      "avg_detections_per_frame": 1.3170731707317074
+    },
+    "train_abnormal_biological_train_abnormal_biological_NTU_A041_S010C003P013R002A041_rgb": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/abnormal_biological/train_abnormal_biological_NTU_A041_S010C003P013R002A041_rgb.avi",
+      "split": "train",
+      "category": "abnormal_biological",
+      "processing_time": 1.1211371421813965,
+      "total_frames": 53,
+      "total_detections": 1403,
+      "fps_achieved": 71.1176892223088,
+      "avg_detections_per_frame": 26.471698113207548
+    },
+    "train_normal_train_normal_neutral_ucarg_person12_04_ground_waving": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/normal/train_normal_neutral_ucarg_person12_04_ground_waving.mp4",
+      "split": "train",
+      "category": "normal",
+      "processing_time": 3.919274091720581,
+      "total_frames": 195,
+      "total_detections": 1597,
+      "fps_achieved": 68.78436206146867,
+      "avg_detections_per_frame": 8.189743589743589
+    },
+    "train_abnormal_train_abnormal_hitting_uccrime_Arrest037_x264": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/abnormal/train_abnormal_hitting_uccrime_Arrest037_x264.mp4",
+      "split": "train",
+      "category": "abnormal",
+      "processing_time": 29.94629406929016,
+      "total_frames": 2133,
+      "total_detections": 5992,
+      "fps_achieved": 70.79697462630052,
+      "avg_detections_per_frame": 2.809188935771214
+    },
+    "train_abnormal_train_abnormal_stealing_uccrime_Robbery058_x264": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/abnormal/train_abnormal_stealing_uccrime_Robbery058_x264.mp4",
+      "split": "train",
+      "category": "abnormal",
+      "processing_time": 22.790911436080933,
+      "total_frames": 1760,
+      "total_detections": 7284,
+      "fps_achieved": 73.20893433766854,
+      "avg_detections_per_frame": 4.138636363636364
+    },
+    "train_abnormal_train_abnormal_vandalizing_ucarg_person06_02_ground_throwing": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/abnormal/train_abnormal_vandalizing_ucarg_person06_02_ground_throwing.mp4",
+      "split": "train",
+      "category": "abnormal",
+      "processing_time": 6.473825454711914,
+      "total_frames": 353,
+      "total_detections": 7671,
+      "fps_achieved": 71.94253527279491,
+      "avg_detections_per_frame": 21.730878186968837
+    },
+    "train_abnormal_physical_train_abnormal_physical_stealing_uccrime_Robbery078_x264": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/abnormal_physical/train_abnormal_physical_stealing_uccrime_Robbery078_x264.mp4",
+      "split": "train",
+      "category": "abnormal_physical",
+      "processing_time": 30.167280197143555,
+      "total_frames": 2403,
+      "total_detections": 8608,
+      "fps_achieved": 74.3828511089082,
+      "avg_detections_per_frame": 3.5821889305035373
+    },
+    "train_normal_train_normal_walking_casia_angleview_p04_wonder_a2": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/normal/train_normal_walking_casia_angleview_p04_wonder_a2.mp4",
+      "split": "train",
+      "category": "normal",
+      "processing_time": 9.049376487731934,
+      "total_frames": 716,
+      "total_detections": 8790,
+      "fps_achieved": 74.88710135978906,
+      "avg_detections_per_frame": 12.276536312849162
+    },
+    "train_abnormal_physical_train_abnormal_physical_vandalizing_ucarg_person01_03_ground_throwing": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/abnormal_physical/train_abnormal_physical_vandalizing_ucarg_person01_03_ground_throwing.mp4",
+      "split": "train",
+      "category": "abnormal_physical",
+      "processing_time": 6.771105766296387,
+      "total_frames": 366,
+      "total_detections": 9112,
+      "fps_achieved": 73.95667472815569,
+      "avg_detections_per_frame": 24.896174863387976
+    },
+    "train_normal_train_normal_walking_ucarg_person01_01_aerial_carrying": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/normal/train_normal_walking_ucarg_person01_01_aerial_carrying.mp4",
+      "split": "train",
+      "category": "normal",
+      "processing_time": 5.960434675216675,
+      "total_frames": 325,
+      "total_detections": 9359,
+      "fps_achieved": 73.22007495230848,
+      "avg_detections_per_frame": 28.796923076923076
+    },
+    "train_normal_train_normal_walking_casia_horizontalview_p01_wonder_a1": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/normal/train_normal_walking_casia_horizontalview_p01_wonder_a1.mp4",
+      "split": "train",
+      "category": "normal",
+      "processing_time": 9.414181232452393,
+      "total_frames": 705,
+      "total_detections": 9683,
+      "fps_achieved": 73.44413992045533,
+      "avg_detections_per_frame": 13.734751773049645
+    },
+    "train_normal_train_normal_walking_okutama_2.2.1_Walking_33": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/normal/train_normal_walking_okutama_2.2.1_Walking_33.mp4",
+      "split": "train",
+      "category": "normal",
+      "processing_time": 2.2815799713134766,
+      "total_frames": 180,
+      "total_detections": 9683,
+      "fps_achieved": 73.58693262745803,
+      "avg_detections_per_frame": 53.794444444444444
+    },
+    "train_abnormal_physical_train_abnormal_physical_hitting_ucarg_person04_03_ground_boxing": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/abnormal_physical/train_abnormal_physical_hitting_ucarg_person04_03_ground_boxing.mp4",
+      "split": "train",
+      "category": "abnormal_physical",
+      "processing_time": 5.679210662841797,
+      "total_frames": 242,
+      "total_detections": 9954,
+      "fps_achieved": 72.52471492003698,
+      "avg_detections_per_frame": 41.13223140495868
+    },
+    "train_normal_train_normal_neutral_virat_VIRAT_S_000206_07_001501_001600_close_car_11": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/normal/train_normal_neutral_virat_VIRAT_S_000206_07_001501_001600_close_car_11.mp4",
+      "split": "train",
+      "category": "normal",
+      "processing_time": 1.9691636562347412,
+      "total_frames": 59,
+      "total_detections": 9954,
+      "fps_achieved": 71.9905906616494,
+      "avg_detections_per_frame": 168.71186440677965
+    },
+    "train_normal_train_normal_walking_okutama_2.1.6_Walking_15": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/normal/train_normal_walking_okutama_2.1.6_Walking_15.mp4",
+      "split": "train",
+      "category": "normal",
+      "processing_time": 5.9229514598846436,
+      "total_frames": 180,
+      "total_detections": 10068,
+      "fps_achieved": 70.44259614282528,
+      "avg_detections_per_frame": 55.93333333333333
+    },
+    "train_abnormal_physical_train_abnormal_physical_stealing_uccrime_Robbery130_x264": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/abnormal_physical/train_abnormal_physical_stealing_uccrime_Robbery130_x264.mp4",
+      "split": "train",
+      "category": "abnormal_physical",
+      "processing_time": 27.829705476760864,
+      "total_frames": 1838,
+      "total_detections": 10090,
+      "fps_achieved": 69.90775609625665,
+      "avg_detections_per_frame": 5.4896626768226335
+    },
+    "train_abnormal_physical_train_abnormal_physical_kicking_uccrime_Assault032_x264": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/abnormal_physical/train_abnormal_physical_kicking_uccrime_Assault032_x264.mp4",
+      "split": "train",
+      "category": "abnormal_physical",
+      "processing_time": 6.420568943023682,
+      "total_frames": 572,
+      "total_detections": 10556,
+      "fps_achieved": 70.5899937332605,
+      "avg_detections_per_frame": 18.454545454545453
+    },
+    "train_abnormal_physical_train_abnormal_physical_kicking_utint_53_19_kick": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/abnormal_physical/train_abnormal_physical_kicking_utint_53_19_kick.mp4",
+      "split": "train",
+      "category": "abnormal_physical",
+      "processing_time": 1.1063334941864014,
+      "total_frames": 87,
+      "total_detections": 10791,
+      "fps_achieved": 70.65334460471585,
+      "avg_detections_per_frame": 124.03448275862068
+    },
+    "train_abnormal_train_abnormal_stealing_uccrime_Shoplifting022_x264": {
+      "video_path": "/home/nguyenhoang/Downloads/abnormal_detection_dataset/videos/train/abnormal/train_abnormal_stealing_uccrime_Shoplifting022_x264.mp4",
+      "split": "train",
+      "category": "abnormal",
+      "processing_time": 50.28110337257385,
+      "total_frames": 2191,
+      "total_detections": 13608,
+      "fps_achieved": 65.14194327657532,
+      "avg_detections_per_frame": 6.210862619808307
+    }
+  },
+  "category_stats": {
+    "train_normal": {
+      "split": "train",
+      "category": "normal",
+      "total_videos": 8,
+      "total_time": 42.016258001327515,
+      "avg_time_per_video": 5.252032250165939,
+      "total_detections": 59149,
+      "avg_detections_per_video": 7393.625
+    },
+    "train_abnormal_physical": {
+      "split": "train",
+      "category": "abnormal_physical",
+      "total_videos": 7,
+      "total_time": 92.0417149066925,
+      "avg_time_per_video": 13.148816415241786,
+      "total_detections": 60461,
+      "avg_detections_per_video": 8637.285714285714
+    },
+    "train_abnormal_biological": {
+      "split": "train",
+      "category": "abnormal_biological",
+      "total_videos": 1,
+      "total_time": 1.1211371421813965,
+      "avg_time_per_video": 1.1211371421813965,
+      "total_detections": 1403,
+      "avg_detections_per_video": 1403.0
+    },
+    "train_abnormal": {
+      "split": "train",
+      "category": "abnormal",
+      "total_videos": 4,
+      "total_time": 109.49213433265686,
+      "avg_time_per_video": 27.373033583164215,
+      "total_detections": 34555,
+      "avg_detections_per_video": 8638.75
+    }
+  },
+  "overall_stats": {
+    "total_videos_processed": 20,
+    "total_processing_time": 244.67124438285828,
+    "avg_time_per_video": 12.233562219142915,
+    "videos_per_hour": 294.27242331483535
+  }
+}
