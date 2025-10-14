@@ -6,3 +6,6 @@ yolov7.pt
 yolo_results_test_normal_neutral_bitint_bend_0026
 yolov10n.pt
 yolo11n.pt
+train/venv
+train/human_detection_results/datasets
+models

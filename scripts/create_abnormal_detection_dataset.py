@@ -454,7 +454,7 @@ Each video is labeled as:
 Please cite the original SPHAR dataset and NTU RGB+ dataset when using this derived dataset.
 """
         
-        with open(self.output_dir / 'README.md', 'w') as f:
+        with open(self.output_dir / 'README.md', 'w', encoding='utf-8') as f:
             f.write(readme_content)
     
     def create_dataset(self):
@@ -490,10 +490,10 @@ Please cite the original SPHAR dataset and NTU RGB+ dataset when using this deri
 def main():
     parser = argparse.ArgumentParser(description='Create abnormal activity detection dataset')
     parser.add_argument('--source', '-s', 
-                       default='/home/nguyenhoang/Downloads/SPHAR-Dataset/videos',
+                       default=r'D:\SPHAR-Dataset\videos',
                        help='Source directory containing SPHAR videos')
     parser.add_argument('--output', '-o',
-                       default='/home/nguyenhoang/Downloads/abnormal_detection_dataset',
+                       default=r'D:\abnormal_detection_dataset',
                        help='Output directory for the new dataset')
     parser.add_argument('--train-ratio', type=float, default=0.7,
                        help='Ratio of videos for training (default: 0.7)')
