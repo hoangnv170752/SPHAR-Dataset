@@ -119,6 +119,7 @@ class ActionRecognitionInference:
             'hitting': (0, 100, 255), # Orange - Violence
             'running': (0, 255, 255), # Yellow - Alert
             'warning': (0, 165, 255), # Orange - Warning
+            'normal': (0, 255, 0),    # Green - Normal behavior
             'neutral': (0, 255, 0),   # Green - Normal
             'unknown': (128, 128, 128) # Gray - Unknown
         }
@@ -131,6 +132,7 @@ class ActionRecognitionInference:
             'hitting': 3,   # Highest priority - Violence
             'running': 2,   # Medium priority - Alert
             'warning': 1,   # Low priority - Suspicious
+            'normal': 0,    # No priority - Normal behavior
             'neutral': 0,   # No priority - Normal
             'unknown': 0    # No priority
         }

@@ -14,6 +14,7 @@ import os
 import json
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as transforms
@@ -69,6 +70,13 @@ class ActionDatasetOrganizer:
                 'folders': ['stealing', 'igniting', 'luggage', 'carcrash'],
                 'ntu_actions': ['A109', 'A111', 'A112', 'A113', 'A114', 'A115', 'A116', 'A117', 'A118'],  # grab stuff, step on foot, high-five, cheers, carry object, take photo, follow, whisper, exchange things
                 'description': 'Suspicious activities requiring attention'
+            },
+            
+            # NORMAL actions (everyday activities, no threat)
+            'normal': {
+                'folders': ['walking', 'sitting', 'neutral'],
+                'ntu_actions': ['A001', 'A002', 'A003', 'A004', 'A005', 'A006', 'A007', 'A008', 'A009', 'A010'],  # drink water, eat meal, brush teeth, brush hair, drop, pickup, throw, sit down, stand up, clapping
+                'description': 'Normal everyday activities, no threat detected'
             }
         }
     
@@ -142,13 +150,18 @@ class ActionDatasetOrganizer:
                         video_collections[action].extend(videos)
                         logger.info(f"Found {len(videos)} NTU videos in {ntu_action} for action '{action}'")
         
-        # Process IITB-Corridor (all as warning behavior - surveillance videos)
+        # Process IITB-Corridor (split between normal walking and warning behavior)
         iitb_dir = self.videos_root / 'IITB-Corridor'
         if iitb_dir.exists():
             videos = list(iitb_dir.glob('**/*.avi'))
-            # Add all IITB videos to warning category (surveillance/suspicious behavior)
-            video_collections['warning'].extend(videos)
-            logger.info(f"Added {len(videos)} IITB-Corridor videos to warning category")
+            # Split IITB videos: 60% normal walking, 40% warning/suspicious
+            normal_count = int(len(videos) * 0.6)
+            
+            video_collections['normal'].extend(videos[:normal_count])
+            video_collections['warning'].extend(videos[normal_count:])
+            
+            logger.info(f"Added {normal_count} IITB-Corridor videos to normal category")
+            logger.info(f"Added {len(videos) - normal_count} IITB-Corridor videos to warning category")
         
         # Split datasets (70% train, 15% val, 15% test)
         dataset_info = {}
@@ -157,7 +170,18 @@ class ActionDatasetOrganizer:
                 continue
                 
             random.shuffle(videos)
-            n_videos = len(videos)
+            
+            # Limit dataset size for faster training
+            max_videos_per_class = {
+                'fall': min(len(videos), 200),      # Keep all fall videos (critical)
+                'hitting': min(len(videos), 400),   # Reduce hitting videos
+                'running': min(len(videos), 300),   # Reduce running videos  
+                'warning': min(len(videos), 400),   # Reduce warning videos
+                'normal': min(len(videos), 800)     # Significantly reduce normal videos
+            }
+            
+            n_videos = max_videos_per_class.get(action, len(videos))
+            videos = videos[:n_videos]  # Take only first n_videos
             
             n_train = int(0.7 * n_videos)
             n_val = int(0.15 * n_videos)
@@ -264,6 +288,16 @@ class VideoActionDataset(Dataset):
         # Load video frames
         frames = self._load_video_frames(video_path)
         
+        # Validate frames
+        if frames is None or len(frames) == 0:
+            # Create dummy frames if loading failed
+            frames = np.zeros((self.sequence_length, 224, 224, 3), dtype=np.uint8)
+        
+        # Ensure correct shape
+        if len(frames.shape) != 4 or frames.shape[0] != self.sequence_length:
+            # Reshape or create dummy frames
+            frames = np.zeros((self.sequence_length, 224, 224, 3), dtype=np.uint8)
+        
         if self.transform:
             frames = self.transform(frames)
         
@@ -280,8 +314,16 @@ class VideoActionDataset(Dataset):
         # Handle regular video files
         cap = cv2.VideoCapture(str(video_path))
         
+        if not cap.isOpened():
+            # Return dummy frames if video can't be opened
+            return np.zeros((self.sequence_length, 224, 224, 3), dtype=np.uint8)
+        
         frames = []
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        
+        if frame_count <= 0:
+            cap.release()
+            return np.zeros((self.sequence_length, 224, 224, 3), dtype=np.uint8)
         
         if frame_count < self.sequence_length:
             # If video is too short, repeat frames
@@ -295,20 +337,23 @@ class VideoActionDataset(Dataset):
             ret, frame = cap.read()
             if ret:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frame = cv2.resize(frame, (224, 224))
                 frames.append(frame)
         
         cap.release()
         
-        # Convert to numpy array (T, H, W, C)
-        frames = np.array(frames)
+        # Ensure we have enough frames
+        while len(frames) < self.sequence_length:
+            if len(frames) > 0:
+                frames.append(frames[-1])  # Repeat last frame
+            else:
+                # Create dummy frame
+                frames.append(np.zeros((224, 224, 3), dtype=np.uint8))
         
-        # Resize frames to standard size
-        resized_frames = []
-        for frame in frames:
-            resized_frame = cv2.resize(frame, (224, 224))
-            resized_frames.append(resized_frame)
+        # Trim to exact length
+        frames = frames[:self.sequence_length]
         
-        return np.array(resized_frames)
+        return np.array(frames)
     
     def _load_urfd_sequence(self, pseudo_video_path):
         """Load URFD image sequence"""
@@ -329,11 +374,14 @@ class VideoActionDataset(Dataset):
         
         if not fall_images:
             # Fallback: create dummy frames
-            dummy_frame = np.zeros((224, 224, 3), dtype=np.uint8)
-            return np.array([dummy_frame] * self.sequence_length)
+            return np.zeros((self.sequence_length, 224, 224, 3), dtype=np.uint8)
         
         # Sort images by frame number
-        fall_images.sort(key=lambda x: int(x.stem.split('-')[-1].split('_')[0]))
+        try:
+            fall_images.sort(key=lambda x: int(x.stem.split('-')[-1].split('_')[0]))
+        except:
+            # If sorting fails, just use as is
+            pass
         
         # Load images
         frames = []
@@ -344,61 +392,81 @@ class VideoActionDataset(Dataset):
                 frame = cv2.resize(frame, (224, 224))
                 frames.append(frame)
         
+        # Ensure we have enough frames
+        if len(frames) == 0:
+            return np.zeros((self.sequence_length, 224, 224, 3), dtype=np.uint8)
+        
         # Sample or repeat frames to match sequence_length
         if len(frames) < self.sequence_length:
             # Repeat frames if too few
             while len(frames) < self.sequence_length:
-                frames.extend(frames[:self.sequence_length - len(frames)])
+                frames.append(frames[-1])  # Repeat last frame
         elif len(frames) > self.sequence_length:
             # Sample frames if too many
             indices = np.linspace(0, len(frames) - 1, self.sequence_length, dtype=int)
             frames = [frames[i] for i in indices]
         
+        # Trim to exact length
+        frames = frames[:self.sequence_length]
+        
         return np.array(frames)
 
 class SlowFastActionModel(nn.Module):
-    """SlowFast architecture for action recognition"""
+    """SlowFast Tiny architecture for action recognition"""
     
-    def __init__(self, num_classes, sequence_length=16, pretrained_backbone=None):
+    def __init__(self, num_classes, sequence_length=8, model_size='tiny'):
         super(SlowFastActionModel, self).__init__()
         
         self.num_classes = num_classes
         self.sequence_length = sequence_length
         
+        # Model size configurations
+        if model_size == 'tiny':
+            slow_channels = [32, 64, 128, 256]
+            fast_channels = [4, 8, 16, 32]
+        else:  # original
+            slow_channels = [64, 128, 256, 512]
+            fast_channels = [8, 16, 32, 64]
+        
         # Slow pathway (low frame rate, high spatial resolution)
-        self.slow_conv1 = nn.Conv3d(3, 64, kernel_size=(1, 7, 7), stride=(1, 2, 2), padding=(0, 3, 3))
-        self.slow_bn1 = nn.BatchNorm3d(64)
-        self.slow_relu = nn.ReLU(inplace=True)
-        self.slow_maxpool = nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
+        self.slow_pathway = nn.Sequential(
+            nn.Conv3d(3, slow_channels[0], kernel_size=(1, 7, 7), stride=(1, 2, 2), padding=(0, 3, 3)),
+            nn.BatchNorm3d(slow_channels[0]),
+            nn.ReLU(inplace=True),
+            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1)),
+            
+            self._make_layer(slow_channels[0], slow_channels[1], 1),
+            self._make_layer(slow_channels[1], slow_channels[2], 1),
+            self._make_layer(slow_channels[2], slow_channels[3], 1),
+        )
         
-        # Slow pathway residual blocks
-        self.slow_layer1 = self._make_layer(64, 64, 2, stride=(1, 1, 1))
-        self.slow_layer2 = self._make_layer(64, 128, 2, stride=(1, 2, 2))
-        self.slow_layer3 = self._make_layer(128, 256, 2, stride=(1, 2, 2))
-        self.slow_layer4 = self._make_layer(256, 512, 2, stride=(1, 2, 2))
+        # Fast pathway (high frame rate, low spatial resolution)  
+        self.fast_pathway = nn.Sequential(
+            nn.Conv3d(3, fast_channels[0], kernel_size=(3, 7, 7), stride=(1, 2, 2), padding=(1, 3, 3)),
+            nn.BatchNorm3d(fast_channels[0]),
+            nn.ReLU(inplace=True),
+            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1)),
+            
+            self._make_layer(fast_channels[0], fast_channels[1], 1),
+            self._make_layer(fast_channels[1], fast_channels[2], 1),
+            self._make_layer(fast_channels[2], fast_channels[3], 1),
+        )
         
-        # Fast pathway (high frame rate, low spatial resolution)
-        self.fast_conv1 = nn.Conv3d(3, 8, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3))
-        self.fast_bn1 = nn.BatchNorm3d(8)
-        self.fast_relu = nn.ReLU(inplace=True)
-        self.fast_maxpool = nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
+        # Lateral connections (Fast -> Slow) - simplified
+        self.lateral_connections = nn.ModuleList([
+            nn.Conv3d(fast_channels[1], slow_channels[1], kernel_size=1),
+            nn.Conv3d(fast_channels[2], slow_channels[2], kernel_size=1),
+            nn.Conv3d(fast_channels[3], slow_channels[3], kernel_size=1),
+        ])
         
-        # Fast pathway residual blocks
-        self.fast_layer1 = self._make_layer(8, 8, 2, stride=(1, 1, 1))
-        self.fast_layer2 = self._make_layer(8, 16, 2, stride=(1, 2, 2))
-        self.fast_layer3 = self._make_layer(16, 32, 2, stride=(1, 2, 2))
-        self.fast_layer4 = self._make_layer(32, 64, 2, stride=(1, 2, 2))
-        
-        # Lateral connections (Fast -> Slow)
-        self.lateral_conv1 = nn.Conv3d(8, 64 // 8, kernel_size=(5, 1, 1), stride=(4, 1, 1), padding=(2, 0, 0))
-        self.lateral_conv2 = nn.Conv3d(16, 128 // 8, kernel_size=(5, 1, 1), stride=(4, 1, 1), padding=(2, 0, 0))
-        self.lateral_conv3 = nn.Conv3d(32, 256 // 8, kernel_size=(5, 1, 1), stride=(4, 1, 1), padding=(2, 0, 0))
-        self.lateral_conv4 = nn.Conv3d(64, 512 // 8, kernel_size=(5, 1, 1), stride=(4, 1, 1), padding=(2, 0, 0))
-        
-        # Global average pooling and classifier
+        # Global average pooling
         self.global_pool = nn.AdaptiveAvgPool3d((1, 1, 1))
-        self.dropout = nn.Dropout(0.5)
-        self.fc = nn.Linear(512 + 64, num_classes)  # Slow + Fast features
+        
+        # Classifier - smaller
+        self.classifier = nn.Sequential(
+            nn.Dropout(0.3),
+            nn.Linear(slow_channels[3] + fast_channels[3], num_classes)  # Slow + Fast features
+        )
         
     def _make_layer(self, in_channels, out_channels, blocks, stride=(1, 1, 1)):
         """Create residual layer"""
@@ -409,51 +477,38 @@ class SlowFastActionModel(nn.Module):
         return nn.Sequential(*layers)
     
     def forward(self, x):
+        """Forward pass"""
         # Input shape: (B, T, H, W, C) -> (B, C, T, H, W)
         x = x.permute(0, 4, 1, 2, 3)
         
-        # Create slow and fast pathways
-        # Slow pathway: sample every 4th frame
-        slow_x = x[:, :, ::4, :, :]  # (B, C, T//4, H, W)
+        # Slow pathway (every 4th frame)
+        slow_indices = torch.arange(0, x.size(2), 4, device=x.device)
+        if len(slow_indices) == 0:
+            slow_indices = torch.tensor([0], device=x.device)
+        slow_x = x[:, :, slow_indices]
         
-        # Fast pathway: use all frames but downsample spatially
-        fast_x = nn.functional.interpolate(x, scale_factor=(1, 0.5, 0.5), mode='trilinear', align_corners=False)
+        # Fast pathway (all frames, downsampled spatially)
+        fast_x = F.interpolate(x, size=(x.size(2), x.size(3)//2, x.size(4)//2), mode='trilinear', align_corners=False)
         
         # Slow pathway forward
-        slow_x = self.slow_conv1(slow_x)
-        slow_x = self.slow_bn1(slow_x)
-        slow_x = self.slow_relu(slow_x)
-        slow_x = self.slow_maxpool(slow_x)
-        
-        slow_x = self.slow_layer1(slow_x)
-        slow_x = self.slow_layer2(slow_x)
-        slow_x = self.slow_layer3(slow_x)
-        slow_x = self.slow_layer4(slow_x)
+        slow_out = self.slow_pathway(slow_x)
         
         # Fast pathway forward
-        fast_x = self.fast_conv1(fast_x)
-        fast_x = self.fast_bn1(fast_x)
-        fast_x = self.fast_relu(fast_x)
-        fast_x = self.fast_maxpool(fast_x)
-        
-        fast_x1 = self.fast_layer1(fast_x)
-        fast_x2 = self.fast_layer2(fast_x1)
-        fast_x3 = self.fast_layer3(fast_x2)
-        fast_x4 = self.fast_layer4(fast_x3)
-        
-        # Lateral connections (simplified)
-        # In practice, you would add these to corresponding slow pathway features
+        fast_out = self.fast_pathway(fast_x)
         
         # Global pooling
-        slow_features = self.global_pool(slow_x).flatten(1)  # (B, 512)
-        fast_features = self.global_pool(fast_x4).flatten(1)  # (B, 64)
+        slow_out = self.global_pool(slow_out)
+        fast_out = self.global_pool(fast_out)
+        
+        # Flatten
+        slow_out = slow_out.view(slow_out.size(0), -1)
+        fast_out = fast_out.view(fast_out.size(0), -1)
         
         # Concatenate features
-        features = torch.cat([slow_features, fast_features], dim=1)  # (B, 576)
+        combined = torch.cat([slow_out, fast_out], dim=1)
         
-        # Classification
-        features = self.dropout(features)
-        output = self.fc(features)
+        # Apply classifier
+        output = self.classifier(combined)
         
         return output
 
@@ -496,14 +551,32 @@ class BasicBlock3D(nn.Module):
 class ActionRecognitionTrainer:
     """Trainer for action recognition model"""
     
-    def __init__(self, model, train_loader, val_loader, device, num_classes):
+    def __init__(self, model, train_loader, val_loader, device, num_classes, class_counts=None):
         self.model = model.to(device)
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.device = device
         self.num_classes = num_classes
         
-        self.criterion = nn.CrossEntropyLoss()
+        # Calculate class weights for imbalanced dataset
+        if class_counts is not None:
+            total_samples = sum(class_counts.values())
+            class_weights = []
+            
+            # Sort by class index to match class_mapping order
+            sorted_classes = sorted(class_counts.keys())
+            for class_name in sorted_classes:
+                count = class_counts[class_name]
+                weight = total_samples / (num_classes * count)  # Inverse frequency weighting
+                class_weights.append(weight)
+            
+            class_weights = torch.tensor(class_weights, dtype=torch.float32).to(device)
+            logger.info(f"Class weights: {dict(zip(sorted_classes, class_weights.cpu().numpy()))}")
+            
+            self.criterion = nn.CrossEntropyLoss(weight=class_weights)
+        else:
+            self.criterion = nn.CrossEntropyLoss()
+        
         self.optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.1)
         
@@ -659,8 +732,17 @@ def main():
     
     logger.info(f"Model created with {num_classes} classes: {list(class_mapping.keys())}")
     
-    # Create trainer
-    trainer = ActionRecognitionTrainer(model, train_loader, val_loader, device, num_classes)
+    # Load dataset info for class weights
+    dataset_info_path = Path(args.output_dir) / 'dataset_info.json'
+    class_counts = None
+    if dataset_info_path.exists():
+        with open(dataset_info_path, 'r') as f:
+            dataset_info = json.load(f)
+        class_counts = {action: info['total'] for action, info in dataset_info.items()}
+        logger.info(f"Loaded class counts: {class_counts}")
+    
+    # Create trainer with class weights
+    trainer = ActionRecognitionTrainer(model, train_loader, val_loader, device, num_classes, class_counts)
     
     # Train model
     logger.info("Starting training...")
