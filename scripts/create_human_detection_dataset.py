@@ -455,7 +455,7 @@ class HumanDetectionDatasetCreator:
                     if frame_data['has_human']:
                         for box in frame_data['human_boxes']:
                             # Class 0 for human
-                            f.write(f"0 {box[0]:.6f} {box[1]:.6f} {box[2]:.6f} {box[3]:.6f}\\n")
+                            f.write(f"0 {box[0]:.6f} {box[1]:.6f} {box[2]:.6f} {box[3]:.6f}\n")
                     # If no humans, create empty label file (required for YOLO)
                 
                 # Add to annotations
@@ -509,11 +509,11 @@ class HumanDetectionDatasetCreator:
         for split_name, frames_data in annotations.items():
             csv_path = self.output_dir / 'annotations' / f'{split_name}_annotations.csv'
             with open(csv_path, 'w') as f:
-                f.write('filename,has_human,num_humans,category,video_name,frame_number,timestamp,split\\n')
+                f.write('filename,has_human,num_humans,category,video_name,frame_number,timestamp,split\n')
                 for frame in frames_data:
                     f.write(f"{frame['filename']},{frame['has_human']},{frame['num_humans']},"
                            f"{frame['category']},{frame['video_name']},{frame['frame_number']},"
-                           f"{frame['timestamp']:.2f},{frame['split']}\\n")
+                           f"{frame['timestamp']:.2f},{frame['split']}\n")
     
     def create_dataset_info(self, annotations):
         """Create dataset information file"""

@@ -262,9 +262,16 @@ class YOLOv11HumanFineTuner:
         # Setup training configuration
         train_config = self.setup_training_config()
         
-        # Create custom dataset config
-        custom_yaml = self.create_custom_yaml()
-        train_config['data'] = str(custom_yaml)
+        # Use existing dataset.yaml instead of creating custom one
+        existing_yaml = self.dataset_path / 'dataset.yaml'
+        if existing_yaml.exists():
+            train_config['data'] = str(existing_yaml)
+            print(f"✅ Using existing dataset.yaml: {existing_yaml}")
+        else:
+            # Fallback to custom yaml
+            custom_yaml = self.create_custom_yaml()
+            train_config['data'] = str(custom_yaml)
+            print(f"⚠️ Created custom dataset.yaml: {custom_yaml}")
         
         print("Training configuration:")
         for key, value in train_config.items():
