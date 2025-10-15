@@ -8,4 +8,5 @@ yolov10n.pt
 yolo11n.pt
 train/venv
 train/human_detection_results/datasets
+train
 models
