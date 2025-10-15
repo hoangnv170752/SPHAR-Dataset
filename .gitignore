@@ -10,3 +10,5 @@ train/venv
 train/human_detection_results/datasets
 train
 models
+runs
+output

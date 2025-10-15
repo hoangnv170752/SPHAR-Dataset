@@ -556,8 +556,24 @@ def main():
         if args.source.lower() == 'webcam':
             tracker.process_webcam()
         else:
+            # Handle IITB-Corridor shortcut: "iitb:000209" or just "000209"
+            video_path = args.source
+            
+            # Check if it's IITB-Corridor format
+            if video_path.startswith('iitb:'):
+                video_id = video_path.split(':')[1]
+                video_path = f'D:\\SPHAR-Dataset\\videos\\IITB-Corridor\\{video_id}\\{video_id}.avi'
+            elif video_path.isdigit() and len(video_path) == 6:
+                # Just video ID like "000209"
+                video_path = f'D:\\SPHAR-Dataset\\videos\\IITB-Corridor\\{video_path}\\{video_path}.avi'
+            
+            # Check if video exists
+            if not Path(video_path).exists():
+                print(f"❌ Video not found: {video_path}")
+                return
+            
             tracker.process_video(
-                video_path=args.source,
+                video_path=video_path,
                 output_path=args.output,
                 display=not args.no_display
             )
@@ -566,6 +582,8 @@ def main():
         print("\nExamples:")
         print("  python test_yolo_deepsort.py --source webcam")
         print("  python test_yolo_deepsort.py --source video.mp4 --output tracked.mp4")
+        print("  python test_yolo_deepsort.py --source iitb:000209")
+        print("  python test_yolo_deepsort.py --source 000209")
 
 if __name__ == "__main__":
     main()

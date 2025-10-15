@@ -28,6 +28,18 @@ SAMPLE_VIDEOS = {
     "ntu_action": {
         "path": r"D:\SPHAR-Dataset\videos\NTU\A001\S001C001P001R001A001_rgb.avi",
         "desc": "NTU action dataset (Always has person)"
+    },
+    "iitb_corridor_1": {
+        "path": r"D:\SPHAR-Dataset\videos\IITB-Corridor\000209\000209.avi",
+        "desc": "IITB Corridor dataset (Surveillance video)"
+    },
+    "iitb_corridor_2": {
+        "path": r"D:\SPHAR-Dataset\videos\IITB-Corridor\000220\000220.avi",
+        "desc": "IITB Corridor dataset (Surveillance video)"
+    },
+    "iitb_corridor_3": {
+        "path": r"D:\SPHAR-Dataset\videos\IITB-Corridor\000250\000250.avi",
+        "desc": "IITB Corridor dataset (Surveillance video)"
     }
 }
 

@@ -1,0 +1,44 @@
+{
+  "timestamp": "2025-10-15 19:23:12",
+  "model1": {
+    "model_name": "Pretrained",
+    "total_frames": 217,
+    "total_detections": 275,
+    "avg_detections_per_frame": 1.2672811059907834,
+    "avg_inference_time": 0.06117888529729184,
+    "avg_fps": 19.478456848413717,
+    "min_fps": 0.6041859242373497,
+    "max_fps": 32.80336612910794,
+    "avg_confidence": 0.7983373353698037,
+    "min_confidence": 0.35236334800720215,
+    "max_confidence": 0.9154741764068604,
+    "frames_with_detections": 181,
+    "detection_rate": 83.41013824884793
+  },
+  "model2": {
+    "model_name": "Fine-tuned",
+    "total_frames": 217,
+    "total_detections": 248,
+    "avg_detections_per_frame": 1.1428571428571428,
+    "avg_inference_time": 0.0331763539995466,
+    "avg_fps": 31.853652747243764,
+    "min_fps": 3.09932261728209,
+    "max_fps": 43.022473869382814,
+    "avg_confidence": 0.7923303981942516,
+    "min_confidence": 0.36194267868995667,
+    "max_confidence": 0.8900867104530334,
+    "frames_with_detections": 181,
+    "detection_rate": 83.41013824884793
+  },
+  "improvements": {
+    "avg_fps": 63.53273257289812,
+    "avg_inference_time": 45.771561808735356,
+    "total_detections": -9.818181818181818,
+    "avg_detections_per_frame": -9.81818181818182,
+    "detection_rate": 0.0,
+    "avg_confidence": -0.7524309473475397,
+    "min_confidence": 2.718594523786486,
+    "frames_with_detections": 0.0
+  },
+  "device": "cuda"
+}
