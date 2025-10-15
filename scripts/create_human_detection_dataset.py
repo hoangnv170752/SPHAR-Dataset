@@ -23,15 +23,34 @@ import numpy as np
 from ultralytics import YOLO
 
 class HumanDetectionDatasetCreator:
-    def __init__(self, source_dir, output_dir, frame_interval=30, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15):
+    def __init__(self, source_dir, output_dir, frame_interval=30, max_videos_per_category=50, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, focus_on_human_behavior=True):
         self.source_dir = Path(source_dir)
         self.output_dir = Path(output_dir)
         self.frame_interval = frame_interval  # Extract 1 frame every N frames
+        self.max_videos_per_category = max_videos_per_category if max_videos_per_category > 0 else None
         self.train_ratio = train_ratio
         self.val_ratio = val_ratio
         self.test_ratio = test_ratio
+        self.focus_on_human_behavior = focus_on_human_behavior
         
-        # Load YOLOv8 model for human detection
+        # Define categories with high probability of humans (indoor activities)
+        self.human_focused_categories = {
+            'NTU',  # Always has humans
+            'neutral', 'sitting', 'walking', 'running',  # Human activities
+            'hitting', 'kicking', 'stealing', 'murdering'  # Human interactions
+        }
+        
+        # Categories that often have no humans or are outdoor/vehicle focused
+        self.non_human_categories = {
+            'carcrash', 'igniting', 'vandalizing'  # Often no humans visible
+        }
+        
+        # Mixed categories (need detection to separate)
+        self.mixed_categories = {
+            'falling', 'luggage', 'panicking'
+        }
+        
+        # Load YOLO model for human detection
         self.yolo_model = None
         self._load_yolo_model()
         
@@ -187,35 +206,116 @@ class HumanDetectionDatasetCreator:
         print(f"Extracted {extracted_count} frames from {video_path.name}")
         return frames_data
     
-    def process_all_videos(self):
-        """Process all videos in the source directory"""
-        print("Processing all videos...")
+    def process_all_videos(self, max_videos_per_category=None):
+        """Process all videos with focus on human behavior"""
+        print("Processing videos with human behavior focus...")
         
         all_frames_data = []
         
-        # Process each category directory
-        for category_dir in self.source_dir.iterdir():
-            if not category_dir.is_dir():
+        # Prioritize categories based on focus
+        if self.focus_on_human_behavior:
+            # Process human-focused categories first with higher limits
+            priority_categories = list(self.human_focused_categories)
+            secondary_categories = list(self.mixed_categories)
+            background_categories = list(self.non_human_categories)
+        else:
+            # Process all categories equally
+            priority_categories = []
+            secondary_categories = []
+            background_categories = []
+            for category_dir in self.source_dir.iterdir():
+                if category_dir.is_dir():
+                    background_categories.append(category_dir.name)
+        
+        # Define limits per category type
+        priority_limit = max_videos_per_category if max_videos_per_category else 100
+        secondary_limit = max_videos_per_category // 2 if max_videos_per_category else 50
+        background_limit = max_videos_per_category // 4 if max_videos_per_category else 20
+        
+        category_processing_plan = [
+            (priority_categories, priority_limit, "High Priority (Human Behavior)"),
+            (secondary_categories, secondary_limit, "Medium Priority (Mixed)"),
+            (background_categories, background_limit, "Background (Non-Human)")
+        ]
+        
+        total_videos = 0
+        for categories, limit, desc in category_processing_plan:
+            for category_name in categories:
+                category_dir = self.source_dir / category_name
+                if not category_dir.exists():
+                    continue
+                    
+                video_extensions = ['*.mp4', '*.avi', '*.mov', '*.mkv']
+                video_files = []
+                for ext in video_extensions:
+                    video_files.extend(category_dir.glob(ext))
+                
+                actual_limit = min(len(video_files), limit) if limit else len(video_files)
+                total_videos += actual_limit
+                print(f"{desc} - {category_name}: {actual_limit}/{len(video_files)} videos")
+        
+        print(f"\\nTotal videos to process: {total_videos}")
+        
+        # Process categories according to plan
+        processed_videos = 0
+        
+        for categories, limit, desc in category_processing_plan:
+            if not categories:
                 continue
                 
-            category_name = category_dir.name
-            print(f"Processing category: {category_name}")
+            print(f"\\n=== {desc} ===")
             
-            # Find video files in category
-            video_extensions = ['*.mp4', '*.avi', '*.mov', '*.mkv']
-            video_files = []
-            
-            for ext in video_extensions:
-                video_files.extend(category_dir.glob(ext))
-            
-            if not video_files:
-                print(f"No video files found in {category_name}")
-                continue
-            
-            # Process each video
-            for video_path in video_files:
-                frames_data = self.extract_frames_from_video(video_path, category_name)
-                all_frames_data.extend(frames_data)
+            for category_name in categories:
+                category_dir = self.source_dir / category_name
+                if not category_dir.exists():
+                    print(f"Skipping {category_name} (directory not found)")
+                    continue
+                
+                # Find video files
+                video_extensions = ['*.mp4', '*.avi', '*.mov', '*.mkv']
+                video_files = []
+                for ext in video_extensions:
+                    video_files.extend(category_dir.glob(ext))
+                
+                if not video_files:
+                    print(f"Skipping {category_name} (no videos)")
+                    continue
+                
+                # Apply limit
+                if limit and len(video_files) > limit:
+                    video_files = video_files[:limit]
+                
+                print(f"Processing {category_name}: {len(video_files)} videos")
+                
+                # Process videos with progress tracking
+                category_frames = []
+                with tqdm(video_files, desc=f"{category_name}", unit="video") as pbar:
+                    for video_path in pbar:
+                        try:
+                            frames_data = self.extract_frames_from_video(video_path, category_name)
+                            category_frames.extend(frames_data)
+                            processed_videos += 1
+                            
+                            pbar.set_postfix({
+                                'frames': len(category_frames),
+                                'with_human': sum(1 for f in category_frames if f['has_human']),
+                                'progress': f"{processed_videos}/{total_videos}"
+                            })
+                            
+                        except Exception as e:
+                            print(f"Error processing {video_path}: {e}")
+                            continue
+                
+                all_frames_data.extend(category_frames)
+                
+                # Print category summary
+                with_human = sum(1 for f in category_frames if f['has_human'])
+                without_human = len(category_frames) - with_human
+                print(f"  {category_name} summary: {len(category_frames)} frames "
+                      f"({with_human} with human, {without_human} without human)")
+        
+        print(f"\\nCompleted processing {processed_videos} videos")
+        print(f"Total frames extracted: {len(all_frames_data)}")
         
         return all_frames_data
     
@@ -488,7 +588,7 @@ Please cite the original SPHAR dataset when using this derived dataset.
         self.create_output_structure()
         
         # Process all videos and extract frames
-        all_frames_data = self.process_all_videos()
+        all_frames_data = self.process_all_videos(max_videos_per_category=self.max_videos_per_category)
         
         if not all_frames_data:
             print("No frames extracted! Please check the source directory and video files.")
@@ -532,6 +632,10 @@ def main():
                        help='Output directory for the human detection dataset')
     parser.add_argument('--frame-interval', type=int, default=30,
                        help='Extract 1 frame every N frames (default: 30)')
+    parser.add_argument('--max-videos-per-category', type=int, default=50,
+                       help='Maximum videos to process per category (default: 50, use 0 for unlimited)')
+    parser.add_argument('--focus-human-behavior', action='store_true', default=True,
+                       help='Focus on human behavior categories (default: True)')
     parser.add_argument('--train-ratio', type=float, default=0.7,
                        help='Ratio of frames for training (default: 0.7)')
     parser.add_argument('--val-ratio', type=float, default=0.15,
@@ -557,9 +661,11 @@ def main():
         source_dir=args.source,
         output_dir=args.output,
         frame_interval=args.frame_interval,
+        max_videos_per_category=args.max_videos_per_category,
         train_ratio=args.train_ratio,
         val_ratio=args.val_ratio,
-        test_ratio=args.test_ratio
+        test_ratio=args.test_ratio,
+        focus_on_human_behavior=args.focus_human_behavior
     )
     
     try:
