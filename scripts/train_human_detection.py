@@ -20,9 +20,21 @@ from ultralytics import YOLO
 import torch
 
 class HumanDetectionTrainer:
-    def __init__(self, dataset_path, model_name='yolov8n.pt', epochs=100, imgsz=640, batch_size=16):
+    def __init__(self, dataset_path, model_name='yolo11s.pt', epochs=100, imgsz=640, batch_size=16):
         self.dataset_path = Path(dataset_path)
-        self.model_name = model_name
+        
+        # Check if model_name is just filename, then look in models directory
+        if not Path(model_name).exists() and not model_name.startswith('/') and not model_name.startswith('\\'):
+            base_dir = Path(__file__).parent.parent
+            model_path = base_dir / 'models' / model_name
+            if model_path.exists():
+                self.model_name = str(model_path)
+                print(f"Using local model: {self.model_name}")
+            else:
+                self.model_name = model_name
+                print(f"Model will be downloaded: {self.model_name}")
+        else:
+            self.model_name = model_name
         self.epochs = epochs
         self.imgsz = imgsz
         self.batch_size = batch_size
@@ -304,8 +316,8 @@ def main():
     parser.add_argument('--dataset', '-d',
                        default=r'D:\\SPHAR-Dataset\\train\\human_detection_dataset',
                        help='Path to human detection dataset')
-    parser.add_argument('--model', '-m', default='yolov8n.pt',
-                       help='YOLO model to use (default: yolov8n.pt)')
+    parser.add_argument('--model', '-m', default='yolo11s.pt',
+                       help='YOLO model to use (default: yolo11s.pt)')
     parser.add_argument('--epochs', '-e', type=int, default=100,
                        help='Number of training epochs (default: 100)')
     parser.add_argument('--imgsz', '-i', type=int, default=640,

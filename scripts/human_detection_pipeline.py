@@ -107,7 +107,7 @@ class HumanDetectionPipeline:
             print("STDERR:", e.stderr)
             return False, None
     
-    def train_model(self, dataset_dir, model_name='yolov8n.pt', epochs=100, **kwargs):
+    def train_model(self, dataset_dir, model_name='yolo11s.pt', epochs=100, **kwargs):
         """Step 2: Train YOLO model"""
         print("\\n" + "="*60)
         print("STEP 2: TRAINING HUMAN DETECTION MODEL")
@@ -212,7 +212,7 @@ class HumanDetectionPipeline:
         # Step 2: Train model
         train_success, model_path = self.train_model(
             dataset_dir=dataset_dir,
-            model_name=kwargs.get('model_name', 'yolov8n.pt'),
+            model_name=kwargs.get('model_name', 'yolo11s.pt'),
             epochs=kwargs.get('epochs', 100),
             train_imgsz=kwargs.get('imgsz', 640),
             train_batch=kwargs.get('batch_size', 16)
@@ -327,8 +327,8 @@ def main():
                        help='Test data ratio (default: 0.15)')
     
     # Training parameters
-    parser.add_argument('--model-name', default='yolov8n.pt',
-                       help='YOLO model to use (default: yolov8n.pt)')
+    parser.add_argument('--model-name', default='yolo11s.pt',
+                       help='YOLO model to use (default: yolo11s.pt)')
     parser.add_argument('--epochs', type=int, default=100,
                        help='Number of training epochs (default: 100)')
     parser.add_argument('--imgsz', type=int, default=640,

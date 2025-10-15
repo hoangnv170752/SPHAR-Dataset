@@ -65,14 +65,14 @@ python create_human_detection_dataset.py \
 ```bash
 python train_human_detection.py \
     --dataset "D:\SPHAR-Dataset\train\human_detection_dataset" \
-    --model yolov8n.pt \
+    --model yolo11s.pt \
     --epochs 100 \
     --batch 16
 ```
 
 **Tham số:**
 - `--dataset`: Đường dẫn đến dataset đã tạo
-- `--model`: Mô hình YOLO base (yolov8n.pt, yolov8s.pt, yolov8m.pt, yolov8l.pt)
+- `--model`: Mô hình YOLO base (yolo11n.pt, yolo11s.pt, yolo11m.pt, yolo11l.pt)
 - `--epochs`: Số epoch training (default: 100)
 - `--imgsz`: Kích thước ảnh (default: 640)
 - `--batch`: Batch size (default: 16)
@@ -151,10 +151,10 @@ classified_frames/
 - **60+**: Nhanh nhưng có thể mất thông tin
 
 ### Model Size
-- **yolov8n.pt**: Nhanh, nhẹ, độ chính xác thấp hơn
-- **yolov8s.pt**: Cân bằng (khuyến nghị)
-- **yolov8m.pt**: Chậm hơn, độ chính xác cao hơn
-- **yolov8l.pt**: Rất chậm, độ chính xác cao nhất
+- **yolo11n.pt**: Nhanh, nhẹ, độ chính xác thấp hơn
+- **yolo11s.pt**: Cân bằng (khuyến nghị)
+- **yolo11m.pt**: Chậm hơn, độ chính xác cao hơn
+- **yolo11l.pt**: Rất chậm, độ chính xác cao nhất
 
 ### Batch Size
 - **8-16**: Cho GPU 4-8GB
@@ -190,7 +190,7 @@ classified_frames/
 
 2. **Chất lượng cao:**
    ```bash
-   --model yolov8m.pt --epochs 200 --imgsz 640
+   --model yolo11m.pt --epochs 200 --imgsz 640
    ```
 
 3. **Test nhanh:**
@@ -207,10 +207,10 @@ python create_human_detection_dataset.py \
     --output "D:\SPHAR-Dataset\train\human_detection_dataset" \
     --frame-interval 20
 
-# 2. Training với YOLOv8s, 150 epochs
+# 2. Training với YOLOv11s, 150 epochs
 python train_human_detection.py \
     --dataset "D:\SPHAR-Dataset\train\human_detection_dataset" \
-    --model yolov8s.pt \
+    --model yolo11s.pt \
     --epochs 150 \
     --batch 24
 

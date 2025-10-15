@@ -45,14 +45,25 @@ class HumanDetectionDatasetCreator:
         }
         
     def _load_yolo_model(self):
-        """Load YOLOv8 model for human detection"""
+        """Load YOLOv11 model for human detection"""
         try:
-            print("Loading YOLOv8 model for human detection...")
-            self.yolo_model = YOLO('yolov8n.pt')  # Use nano model for speed
-            print("YOLOv8 model loaded successfully!")
+            print("Loading YOLOv11 model for human detection...")
+            
+            # Try to find model in models directory first
+            base_dir = Path(__file__).parent.parent
+            model_path = base_dir / 'models' / 'yolo11n.pt'
+            
+            if model_path.exists():
+                print(f"Using local model: {model_path}")
+                self.yolo_model = YOLO(str(model_path))
+            else:
+                print("Local model not found, downloading yolo11n.pt...")
+                self.yolo_model = YOLO('yolo11n.pt')  # This will download if needed
+            
+            print("YOLOv11 model loaded successfully!")
         except Exception as e:
-            print(f"Error loading YOLOv8 model: {e}")
-            print("Please install ultralytics: pip install ultralytics")
+            print(f"Error loading YOLOv11 model: {e}")
+            print("Please ensure you have the model file or internet connection for download")
             raise
             
     def create_output_structure(self):
@@ -452,7 +463,7 @@ This dataset is ready for training YOLO models for human detection:
 from ultralytics import YOLO
 
 # Load model
-model = YOLO('yolov8n.pt')
+model = YOLO('yolo11s.pt')
 
 # Train model
 model.train(data='dataset.yaml', epochs=100, imgsz=640)
