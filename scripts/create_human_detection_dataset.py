@@ -153,18 +153,32 @@ class HumanDetectionDatasetCreator:
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = cap.get(cv2.CAP_PROP_FPS)
         
+        # Adjust frame interval based on category
+        if category == 'NTU':
+            # NTU always has humans, extract more frames
+            frame_interval = self.frame_interval // 2  # More frequent sampling
+        elif category in self.non_human_categories:
+            # Background categories - extract more frames for negative samples
+            frame_interval = self.frame_interval // 3  # Even more frequent for backgrounds
+        elif category in self.human_focused_categories:
+            # Human activities - normal sampling
+            frame_interval = self.frame_interval
+        else:
+            # Mixed categories - normal sampling
+            frame_interval = self.frame_interval
+        
         frames_data = []
         frame_count = 0
         extracted_count = 0
         
-        with tqdm(total=total_frames//self.frame_interval, desc=f"Extracting frames from {video_path.name}") as pbar:
+        with tqdm(total=total_frames//frame_interval, desc=f"Extracting frames from {video_path.name}") as pbar:
             while True:
                 ret, frame = cap.read()
                 if not ret:
                     break
                 
                 # Extract frame at intervals
-                if frame_count % self.frame_interval == 0:
+                if frame_count % frame_interval == 0:
                     # Detect humans in frame
                     has_human, human_boxes = self.detect_humans_in_frame(frame)
                     
@@ -228,9 +242,18 @@ class HumanDetectionDatasetCreator:
                     background_categories.append(category_dir.name)
         
         # Define limits per category type
-        priority_limit = max_videos_per_category if max_videos_per_category else 100
-        secondary_limit = max_videos_per_category // 2 if max_videos_per_category else 50
-        background_limit = max_videos_per_category // 4 if max_videos_per_category else 20
+        if self.focus_on_human_behavior:
+            # For human behavior focus: NTU unlimited, human activities high, background for negative samples
+            ntu_limit = None  # Unlimited for NTU (always has humans)
+            priority_limit = max_videos_per_category if max_videos_per_category else 100
+            secondary_limit = max_videos_per_category // 2 if max_videos_per_category else 50
+            background_limit = max_videos_per_category if max_videos_per_category else 100  # More background for negative samples
+        else:
+            # Equal processing
+            ntu_limit = max_videos_per_category
+            priority_limit = max_videos_per_category if max_videos_per_category else 100
+            secondary_limit = max_videos_per_category // 2 if max_videos_per_category else 50
+            background_limit = max_videos_per_category // 4 if max_videos_per_category else 20
         
         category_processing_plan = [
             (priority_categories, priority_limit, "High Priority (Human Behavior)"),
@@ -247,10 +270,20 @@ class HumanDetectionDatasetCreator:
                     
                 video_extensions = ['*.mp4', '*.avi', '*.mov', '*.mkv']
                 video_files = []
-                for ext in video_extensions:
-                    video_files.extend(category_dir.glob(ext))
                 
-                actual_limit = min(len(video_files), limit) if limit else len(video_files)
+                if category_name == 'NTU':
+                    # Count videos in NTU subdirectories
+                    for action_dir in category_dir.iterdir():
+                        if action_dir.is_dir() and action_dir.name.startswith('A'):
+                            for ext in video_extensions:
+                                video_files.extend(action_dir.glob(ext))
+                    # Use special NTU limit
+                    actual_limit = min(len(video_files), ntu_limit) if ntu_limit else len(video_files)
+                else:
+                    # Count videos in regular categories
+                    for ext in video_extensions:
+                        video_files.extend(category_dir.glob(ext))
+                    actual_limit = min(len(video_files), limit) if limit else len(video_files)
                 total_videos += actual_limit
                 print(f"{desc} - {category_name}: {actual_limit}/{len(video_files)} videos")
         
@@ -271,21 +304,49 @@ class HumanDetectionDatasetCreator:
                     print(f"Skipping {category_name} (directory not found)")
                     continue
                 
-                # Find video files
+                # Find video files - handle NTU special structure
                 video_extensions = ['*.mp4', '*.avi', '*.mov', '*.mkv']
                 video_files = []
-                for ext in video_extensions:
-                    video_files.extend(category_dir.glob(ext))
+                
+                if category_name == 'NTU':
+                    # NTU has subdirectories A001, A002, etc.
+                    print(f"  Scanning NTU subdirectories...")
+                    for action_dir in category_dir.iterdir():
+                        if action_dir.is_dir() and action_dir.name.startswith('A'):
+                            for ext in video_extensions:
+                                action_videos = list(action_dir.glob(ext))
+                                video_files.extend(action_videos)
+                                if action_videos:
+                                    print(f"    {action_dir.name}: {len(action_videos)} videos")
+                else:
+                    # Regular categories - videos directly in category folder
+                    for ext in video_extensions:
+                        video_files.extend(category_dir.glob(ext))
                 
                 if not video_files:
                     print(f"Skipping {category_name} (no videos)")
                     continue
                 
-                # Apply limit
-                if limit and len(video_files) > limit:
-                    video_files = video_files[:limit]
+                # Apply limit - special handling for NTU
+                if category_name == 'NTU':
+                    if ntu_limit and len(video_files) > ntu_limit:
+                        video_files = video_files[:ntu_limit]
+                    print(f"NTU: Using {len(video_files)} videos (unlimited for human behavior)")
+                else:
+                    if limit and len(video_files) > limit:
+                        video_files = video_files[:limit]
                 
-                print(f"Processing {category_name}: {len(video_files)} videos")
+                # Show frame extraction strategy
+                if category_name == 'NTU':
+                    strategy = f"interval={self.frame_interval//2} (high sampling - always has humans)"
+                elif category_name in self.non_human_categories:
+                    strategy = f"interval={self.frame_interval//3} (very high sampling - background frames)"
+                elif category_name in self.human_focused_categories:
+                    strategy = f"interval={self.frame_interval} (normal sampling - human activities)"
+                else:
+                    strategy = f"interval={self.frame_interval} (normal sampling - mixed)"
+                
+                print(f"Processing {category_name}: {len(video_files)} videos ({strategy})")
                 
                 # Process videos with progress tracking
                 category_frames = []

@@ -41,7 +41,38 @@ python human_detection_pipeline.py \
     --batch-size 32
 ```
 
-### Phương pháp 2: Chạy từng bước riêng biệt
+### Phương pháp 2: Fine-tune YOLOv11s cho Human Detection
+
+```bash
+# Fine-tune với cấu hình chuẩn
+python run_finetune_human.py standard
+
+# Fine-tune nhanh để test
+python run_finetune_human.py quick
+
+# Fine-tune chất lượng cao
+python run_finetune_human.py high_quality
+
+# Fine-tune cho production
+python run_finetune_human.py production
+
+# Fine-tune thủ công với tham số tùy chỉnh
+python finetune_yolo11s_human.py \
+    --base-model "D:\SPHAR-Dataset\models\yolo11s.pt" \
+    --dataset "D:\SPHAR-Dataset\train\human_focused_full" \
+    --output "D:\SPHAR-Dataset\models\finetuned" \
+    --epochs 300 \
+    --batch 16 \
+    --export-name "yolo11s-detect.pt"
+```
+
+**Cấu hình Fine-tuning:**
+- **quick**: 50 epochs, batch=8, imgsz=416 (test nhanh)
+- **standard**: 200 epochs, batch=16, imgsz=640 (khuyến nghị)
+- **high_quality**: 300 epochs, batch=8, imgsz=832 (chất lượng cao)
+- **production**: 500 epochs, batch=32, imgsz=640 (production)
+
+### Phương pháp 3: Chạy từng bước riêng biệt
 
 #### Bước 1: Tạo dataset
 
