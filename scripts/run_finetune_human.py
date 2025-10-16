@@ -20,9 +20,9 @@ def run_finetune_config(config_name, **kwargs):
             'description': 'Quick test run (50 epochs, small images)'
         },
         'standard': {
-            'epochs': 200,
+            'epochs': 100,
             'batch': 16,
-            'imgsz': 640,
+            'imgsz': 416,
             'description': 'Standard training (200 epochs, balanced)'
         },
         'high_quality': {

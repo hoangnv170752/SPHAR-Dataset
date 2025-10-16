@@ -25,7 +25,7 @@ import time
 import psutil
 
 class YOLOv11HumanFineTuner:
-    def __init__(self, base_model_path, dataset_path, output_dir, epochs=200, imgsz=640, batch_size=16):
+    def __init__(self, base_model_path, dataset_path, output_dir, epochs=100, imgsz=640, batch_size=16):
         self.base_model_path = Path(base_model_path)
         self.dataset_path = Path(dataset_path)
         self.output_dir = Path(output_dir)
@@ -77,21 +77,21 @@ class YOLOv11HumanFineTuner:
             print(f"✅ Current GPU: {gpu_name}")
             print(f"✅ GPU Memory: {gpu_memory:.1f} GB")
             
-            # Optimize batch size based on GPU memory
+            # GPU memory recommendations (but don't auto-change)
             if gpu_memory < 6:  # Less than 6GB
-                recommended_batch = min(self.batch_size, 8)
-                print(f"⚠️ Low GPU memory detected. Recommended batch size: {recommended_batch}")
-                if self.batch_size > recommended_batch:
-                    print(f"🔧 Reducing batch size from {self.batch_size} to {recommended_batch}")
-                    self.batch_size = recommended_batch
+                if self.batch_size > 8:
+                    print(f"⚠️ Warning: Batch size {self.batch_size} may be too large for {gpu_memory:.1f}GB GPU")
+                    print(f"� Recommended batch size: 8 or lower")
+                    print(f"🔧 Consider using --batch 8 if you encounter OOM errors")
             elif gpu_memory < 12:  # 6-12GB
-                recommended_batch = min(self.batch_size, 16)
-                if self.batch_size > recommended_batch:
-                    print(f"🔧 Optimizing batch size to {recommended_batch} for {gpu_memory:.1f}GB GPU")
-                    self.batch_size = recommended_batch
+                if self.batch_size > 16:
+                    print(f"⚠️ Warning: Batch size {self.batch_size} may be too large for {gpu_memory:.1f}GB GPU")
+                    print(f"💡 Recommended batch size: 16 or lower")
             else:  # 12GB+
                 if self.batch_size < 32:
                     print(f"💡 High-end GPU detected. You can increase batch size to 32+ for faster training")
+            
+            print(f"🎯 Using batch size: {self.batch_size}")
             
             # Set device
             self.device = f'cuda:{current_device}'
@@ -609,6 +609,9 @@ for result in results:
             if test_samples:
                 self.test_on_samples()
             
+            # Plot training charts
+            self.plot_training_charts(results)
+            
             # Save summary
             self.save_training_summary(results, val_results, export_path)
             
@@ -628,6 +631,154 @@ for result in results:
             import traceback
             traceback.print_exc()
             return False
+    
+    def plot_training_charts(self, results):
+        """Plot training accuracy and loss charts like the provided image"""
+        try:
+            import matplotlib.pyplot as plt
+            import pandas as pd
+            from pathlib import Path
+            
+            print("📊 Creating training charts...")
+            
+            # Get results CSV file
+            results_dir = self.output_dir / 'human_detection_finetune'
+            csv_file = results_dir / 'results.csv'
+            
+            if not csv_file.exists():
+                print(f"⚠️ Results CSV not found: {csv_file}")
+                return
+            
+            # Read training results
+            df = pd.read_csv(csv_file)
+            
+            # Create figure with 2x2 subplots
+            fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
+            fig.suptitle('YOLOv11s Human Detection Fine-tuning Results', fontsize=16, fontweight='bold')
+            
+            # Extract metrics (YOLO CSV columns)
+            epochs = df.index + 1
+            
+            # Chart 1: Model Accuracy (Top Left)
+            if 'metrics/precision(B)' in df.columns and 'val/precision(B)' in df.columns:
+                ax1.plot(epochs, df['metrics/precision(B)'], 'b-', label='Training Precision', linewidth=2)
+                ax1.plot(epochs, df['val/precision(B)'], 'r-', label='Validation Precision', linewidth=2)
+            elif 'train/precision' in df.columns and 'val/precision' in df.columns:
+                ax1.plot(epochs, df['train/precision'], 'b-', label='Training Precision', linewidth=2)
+                ax1.plot(epochs, df['val/precision'], 'r-', label='Validation Precision', linewidth=2)
+            
+            ax1.set_title('Model Precision', fontweight='bold')
+            ax1.set_xlabel('Epochs')
+            ax1.set_ylabel('Precision')
+            ax1.legend()
+            ax1.grid(True, alpha=0.3)
+            ax1.set_ylim(0, 1)
+            
+            # Chart 2: Model Loss (Top Right)
+            if 'train/box_loss' in df.columns and 'val/box_loss' in df.columns:
+                ax2.plot(epochs, df['train/box_loss'], 'b-', label='Training Loss', linewidth=2)
+                ax2.plot(epochs, df['val/box_loss'], 'r-', label='Validation Loss', linewidth=2)
+            elif 'loss' in df.columns:
+                ax2.plot(epochs, df['loss'], 'b-', label='Training Loss', linewidth=2)
+            
+            ax2.set_title('Model Loss', fontweight='bold')
+            ax2.set_xlabel('Epochs')
+            ax2.set_ylabel('Loss')
+            ax2.legend()
+            ax2.grid(True, alpha=0.3)
+            
+            # Chart 3: Model Recall (Bottom Left)
+            if 'metrics/recall(B)' in df.columns and 'val/recall(B)' in df.columns:
+                ax3.plot(epochs, df['metrics/recall(B)'], 'b-', label='Training Recall', linewidth=2)
+                ax3.plot(epochs, df['val/recall(B)'], 'r-', label='Validation Recall', linewidth=2)
+            elif 'train/recall' in df.columns and 'val/recall' in df.columns:
+                ax3.plot(epochs, df['train/recall'], 'b-', label='Training Recall', linewidth=2)
+                ax3.plot(epochs, df['val/recall'], 'r-', label='Validation Recall', linewidth=2)
+            
+            ax3.set_title('Model Recall', fontweight='bold')
+            ax3.set_xlabel('Epochs')
+            ax3.set_ylabel('Recall')
+            ax3.legend()
+            ax3.grid(True, alpha=0.3)
+            ax3.set_ylim(0, 1)
+            
+            # Chart 4: mAP (Bottom Right)
+            if 'metrics/mAP50(B)' in df.columns and 'val/mAP50(B)' in df.columns:
+                ax4.plot(epochs, df['metrics/mAP50(B)'], 'b-', label='Training mAP@0.5', linewidth=2)
+                ax4.plot(epochs, df['val/mAP50(B)'], 'r-', label='Validation mAP@0.5', linewidth=2)
+            elif 'train/mAP50' in df.columns and 'val/mAP50' in df.columns:
+                ax4.plot(epochs, df['train/mAP50'], 'b-', label='Training mAP@0.5', linewidth=2)
+                ax4.plot(epochs, df['val/mAP50'], 'r-', label='Validation mAP@0.5', linewidth=2)
+            
+            ax4.set_title('Model mAP@0.5', fontweight='bold')
+            ax4.set_xlabel('Epochs')
+            ax4.set_ylabel('mAP@0.5')
+            ax4.legend()
+            ax4.grid(True, alpha=0.3)
+            ax4.set_ylim(0, 1)
+            
+            # Adjust layout and save
+            plt.tight_layout()
+            
+            # Save charts
+            charts_path = self.output_dir / 'training_charts.png'
+            plt.savefig(charts_path, dpi=300, bbox_inches='tight', facecolor='white')
+            plt.show()
+            
+            print(f"✅ Training charts saved: {charts_path}")
+            
+            # Also create individual charts
+            self._create_individual_charts(df, epochs)
+            
+        except Exception as e:
+            print(f"⚠️ Failed to create charts: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _create_individual_charts(self, df, epochs):
+        """Create individual accuracy and loss charts like the reference image"""
+        try:
+            import matplotlib.pyplot as plt
+            
+            # Create figure with 1x2 subplots (like reference image)
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+            
+            # Chart 1: Model Accuracy
+            if 'metrics/precision(B)' in df.columns and 'val/precision(B)' in df.columns:
+                ax1.plot(epochs, df['metrics/precision(B)'], 'b-', label='Training Accuracy', linewidth=2)
+                ax1.plot(epochs, df['val/precision(B)'], 'orange', label='Validation Accuracy', linewidth=2)
+            
+            ax1.set_title('Model Accuracy', fontweight='bold', fontsize=14)
+            ax1.set_xlabel('Epochs', fontsize=12)
+            ax1.set_ylabel('Accuracy', fontsize=12)
+            ax1.legend(fontsize=10)
+            ax1.grid(True, alpha=0.3)
+            ax1.set_ylim(0, 1)
+            ax1.set_xlim(0, len(epochs))
+            
+            # Chart 2: Model Loss
+            if 'train/box_loss' in df.columns and 'val/box_loss' in df.columns:
+                ax2.plot(epochs, df['train/box_loss'], 'b-', label='Training Loss', linewidth=2)
+                ax2.plot(epochs, df['val/box_loss'], 'orange', label='Validation Loss', linewidth=2)
+            
+            ax2.set_title('Model Loss', fontweight='bold', fontsize=14)
+            ax2.set_xlabel('Epochs', fontsize=12)
+            ax2.set_ylabel('Loss', fontsize=12)
+            ax2.legend(fontsize=10)
+            ax2.grid(True, alpha=0.3)
+            ax2.set_xlim(0, len(epochs))
+            
+            plt.tight_layout()
+            
+            # Save individual charts
+            individual_charts_path = self.output_dir / 'accuracy_loss_charts.png'
+            plt.savefig(individual_charts_path, dpi=300, bbox_inches='tight', facecolor='white')
+            plt.show()
+            
+            print(f"✅ Individual charts saved: {individual_charts_path}")
+            
+        except Exception as e:
+            print(f"⚠️ Failed to create individual charts: {e}")
 
 def main():
     parser = argparse.ArgumentParser(description='Fine-tune YOLOv11s for human detection')
@@ -635,13 +786,13 @@ def main():
                        default=r'D:\SPHAR-Dataset\models\yolo11s.pt',
                        help='Path to base YOLOv11s model')
     parser.add_argument('--dataset', '-d',
-                       default=r'D:\SPHAR-Dataset\train\human_focused_full',
+                       default=r'D:\SPHAR-Dataset\train\human_focused_dataset',
                        help='Path to human detection dataset')
     parser.add_argument('--output', '-o',
                        default=r'D:\SPHAR-Dataset\models\finetuned',
                        help='Output directory for fine-tuned model')
-    parser.add_argument('--epochs', '-e', type=int, default=200,
-                       help='Number of training epochs (default: 200)')
+    parser.add_argument('--epochs', '-e', type=int, default=100,
+                       help='Number of training epochs (default: 100)')
     parser.add_argument('--imgsz', '-i', type=int, default=640,
                        help='Image size for training (default: 640)')
     parser.add_argument('--batch', '-b', type=int, default=16,
