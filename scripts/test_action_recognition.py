@@ -12,7 +12,15 @@ import json
 import argparse
 from collections import deque
 import time
-from action_recognition_trainer import SlowFastActionModel
+try:
+    from action_recognition_trainer import SlowFastActionModel
+except ImportError:
+    SlowFastActionModel = None
+
+try:
+    from image_action_trainer import OptimizedSlowFastModel
+except ImportError:
+    OptimizedSlowFastModel = None
 
 class ActionRecognitionInference:
     """Real-time action recognition inference"""
@@ -30,10 +38,33 @@ class ActionRecognitionInference:
         
         # Load model
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.model = SlowFastActionModel(self.num_classes, sequence_length)
         
+        # Try to load checkpoint first to determine model type
         checkpoint = torch.load(model_path, map_location=self.device)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
+        
+        # Try OptimizedSlowFastModel first (for ultra_fast_action_model.pt)
+        if OptimizedSlowFastModel is not None:
+            try:
+                self.model = OptimizedSlowFastModel(self.num_classes, sequence_length)
+                self.model.load_state_dict(checkpoint['model_state_dict'])
+                print("✅ Loaded OptimizedSlowFastModel")
+            except Exception as e:
+                print(f"⚠️ Failed to load OptimizedSlowFastModel: {e}")
+                self.model = None
+        
+        # Fallback to original SlowFastActionModel
+        if self.model is None and SlowFastActionModel is not None:
+            try:
+                self.model = SlowFastActionModel(self.num_classes, sequence_length)
+                self.model.load_state_dict(checkpoint['model_state_dict'])
+                print("✅ Loaded SlowFastActionModel")
+            except Exception as e:
+                print(f"❌ Failed to load SlowFastActionModel: {e}")
+                raise e
+        
+        if self.model is None:
+            raise RuntimeError("Could not load any model architecture")
+        
         self.model.to(self.device)
         self.model.eval()
         
@@ -75,23 +106,24 @@ class ActionRecognitionInference:
             
             return predicted_class, confidence_score
     
-    def get_smoothed_prediction(self, current_prediction, confidence):
+    def get_smoothed_prediction(self, current_prediction, confidence, raw_confidence):
         """Smooth predictions using history"""
         if confidence > self.confidence_threshold:
             self.action_history.append(current_prediction)
         
         if len(self.action_history) == 0:
-            return "unknown", 0.0
+            return "normal", 0.0, 0.0
         
-        # Get most common prediction in recent history
-        from collections import Counter
-        action_counts = Counter(self.action_history)
-        most_common_action = action_counts.most_common(1)[0][0]
+        if len(self.action_history) > 0:
+            # Get most common action in recent history
+            action_counts = {}
+            for hist_action in self.action_history:
+                action_counts[hist_action] = action_counts.get(hist_action, 0) + 1
+            
+            smoothed_action = max(action_counts, key=action_counts.get)
+            return smoothed_action, confidence, raw_confidence
         
-        # Calculate smoothed confidence
-        smoothed_confidence = action_counts[most_common_action] / len(self.action_history)
-        
-        return most_common_action, smoothed_confidence
+        return "normal", 0.0, 0.0
     
     def process_frame(self, frame):
         """Process single frame and return action prediction"""
@@ -103,14 +135,16 @@ class ActionRecognitionInference:
         
         # Predict if buffer is full
         if len(self.frame_buffer) == self.sequence_length:
-            predicted_action, confidence = self.predict_action(list(self.frame_buffer))
+            # Convert buffer to numpy array
+            frames = np.array(list(self.frame_buffer))
+            predicted_action, confidence = self.predict_action(frames)
             
-            if predicted_action is not None:
-                # Smooth prediction
-                smoothed_action, smoothed_confidence = self.get_smoothed_prediction(predicted_action, confidence)
-                return smoothed_action, smoothed_confidence, confidence
+            # Apply smoothing
+            smoothed_action, smoothed_confidence, raw_confidence = self.get_smoothed_prediction(predicted_action, confidence, confidence)
+            
+            return smoothed_action, smoothed_confidence, raw_confidence
         
-        return None, 0.0, 0.0
+        return "normal", 0.0, 0.0
     
     def get_action_color(self, action):
         """Get color for action visualization"""
@@ -142,13 +176,13 @@ class ActionRecognitionInference:
         """Annotate frame with action prediction"""
         height, width = frame.shape[:2]
         
+        # Handle None action
+        if action is None:
+            action = "unknown"
+            confidence = 0.0
+        
         # Create overlay
         overlay = frame.copy()
-        
-        # Action info panel
-        panel_height = 120
-        cv2.rectangle(overlay, (10, 10), (400, panel_height), (0, 0, 0), -1)
-        frame = cv2.addWeighted(frame, 0.7, overlay, 0.3, 0)
         
         # Action text
         action_text = f"Action: {action.upper()}"
@@ -320,24 +354,178 @@ def test_on_webcam(model_path, class_mapping_path):
         cap.release()
         cv2.destroyAllWindows()
 
+def test_on_webcam(model_path, class_mapping_path, sequence_length=8, confidence_threshold=0.5):
+    """Test action recognition on webcam"""
+    print("🎬 Testing Action Recognition on Webcam")
+    print("Press 'q' to quit")
+    
+    # Initialize inference
+    inference = ActionRecognitionInference(model_path, class_mapping_path, sequence_length, confidence_threshold)
+    
+    # Open webcam
+    cap = cv2.VideoCapture(0)
+    
+    if not cap.isOpened():
+        print("❌ Cannot open webcam")
+        return
+    
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            
+            # Process frame
+            action, confidence, raw_confidence = inference.process_frame(frame)
+            
+            # Annotate frame
+            annotated_frame = inference.annotate_frame(frame, action, confidence, raw_confidence)
+            
+            # Show frame
+            cv2.imshow('Action Recognition', annotated_frame)
+            
+            # Check for quit
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+    
+    finally:
+        cap.release()
+        cv2.destroyAllWindows()
+
+def test_on_video(model_path, class_mapping_path, video_path, output_path=None, sequence_length=8, confidence_threshold=0.5):
+    """Test action recognition on video file"""
+    print(f"🎬 Testing Action Recognition on Video: {video_path}")
+    
+    # Initialize inference
+    inference = ActionRecognitionInference(model_path, class_mapping_path, sequence_length, confidence_threshold)
+    
+    # Open video
+    cap = cv2.VideoCapture(video_path)
+    
+    if not cap.isOpened():
+        print(f"❌ Cannot open video: {video_path}")
+        return
+    
+    # Video writer for output
+    writer = None
+    if output_path:
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        fps = int(cap.get(cv2.CAP_PROP_FPS))
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+    
+    frame_count = 0
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            
+            frame_count += 1
+            
+            # Process frame
+            action, confidence, raw_confidence = inference.process_frame(frame)
+            
+            # Annotate frame
+            annotated_frame = inference.annotate_frame(frame, action, confidence, raw_confidence)
+            
+            # Write to output video
+            if writer:
+                writer.write(annotated_frame)
+            
+            # Show progress
+            if frame_count % 30 == 0:
+                progress = (frame_count / total_frames) * 100
+                print(f"Progress: {progress:.1f}% - Action: {action} ({confidence:.2f})")
+            
+            # Show frame (optional)
+            cv2.imshow('Action Recognition', annotated_frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+    
+    finally:
+        cap.release()
+        if writer:
+            writer.release()
+        cv2.destroyAllWindows()
+        
+        if output_path:
+            print(f"✅ Output saved to: {output_path}")
+
+def test_on_random_video(model_path, class_mapping_path, sequence_length=8, confidence_threshold=0.5):
+    """Test action recognition on a random video from test folder"""
+    import random
+    
+    # Find test videos
+    test_dirs = [
+        Path(r'D:\SPHAR-Dataset\action_recognition_optimized\test'),
+        Path(r'D:\SPHAR-Dataset\action_recognition\test'),
+        Path(r'D:\SPHAR-Dataset\videos')
+    ]
+    
+    test_videos = []
+    for test_dir in test_dirs:
+        if test_dir.exists():
+            # Find all video files in subdirectories
+            for action_dir in test_dir.iterdir():
+                if action_dir.is_dir():
+                    videos = list(action_dir.glob('*.mp4')) + list(action_dir.glob('*.avi'))
+                    for video in videos:
+                        test_videos.append((video, action_dir.name))
+    
+    if not test_videos:
+        print("❌ No test videos found in:")
+        for test_dir in test_dirs:
+            print(f"   {test_dir}")
+        return
+    
+    # Select random video
+    video_path, true_action = random.choice(test_videos)
+    print(f"🎬 Testing on random video: {video_path.name}")
+    print(f"📊 True action: {true_action}")
+    print(f"Press 'q' to quit, 's' to select another video")
+    
+    # Test on selected video
+    test_on_video(model_path, class_mapping_path, str(video_path), None, sequence_length, confidence_threshold)
+
 def main():
     parser = argparse.ArgumentParser(description='Test Action Recognition Model')
-    parser.add_argument('--model', default=r'D:\SPHAR-Dataset\models\action_recognition_slowfast.pt',
+    parser.add_argument('--model', default='action_recognition_slowfast.pt',
                        help='Path to trained model')
-    parser.add_argument('--class-mapping', default=r'D:\SPHAR-Dataset\action_recognition\class_mapping.json',
+    parser.add_argument('--class-mapping', default=r'D:\SPHAR-Dataset\action_recognition_optimized\class_mapping.json',
                        help='Path to class mapping file')
-    parser.add_argument('--source', help='Video file path or "webcam"')
-    parser.add_argument('--output', help='Output video path (optional)')
-    parser.add_argument('--confidence', type=float, default=0.5,
+    parser.add_argument('--source', default='webcam',
+                       help='Source: "webcam", "random", or path to video file')
+    parser.add_argument('--output', default=None,
+                       help='Output video path (optional)')
+    parser.add_argument('--sequence-length', type=int, default=8,
+                       help='Sequence length for model (8 for ultra_fast, 16 for original)')
+    parser.add_argument('--confidence-threshold', type=float, default=0.5,
                        help='Confidence threshold for predictions')
     
     args = parser.parse_args()
     
-    # Check if model exists
-    if not Path(args.model).exists():
-        print(f"❌ Model not found: {args.model}")
-        print("Please train the model first using action_recognition_trainer.py")
+    # Check model path - look in models directory if not absolute path
+    model_path = Path(args.model)
+    if not model_path.is_absolute():
+        # Try in models directory
+        models_dir = Path(__file__).parent.parent / 'models'
+        model_path = models_dir / args.model
+    
+    if not model_path.exists():
+        print(f"❌ Model not found: {model_path}")
+        print("Available models:")
+        models_dir = Path(__file__).parent.parent / 'models'
+        if models_dir.exists():
+            for model_file in models_dir.glob('*.pt'):
+                print(f"   {model_file.name}")
+        print("Please train the model first or specify correct path")
         return
+    
+    args.model = str(model_path)
     
     # Check if class mapping exists
     if not Path(args.class_mapping).exists():
@@ -345,15 +533,13 @@ def main():
         print("Please organize dataset first using action_recognition_trainer.py --organize-only")
         return
     
-    if args.source:
-        if args.source.lower() == 'webcam':
-            test_on_webcam(args.model, args.class_mapping)
-        else:
-            test_on_video(args.model, args.class_mapping, args.source, args.output)
+    # Run inference
+    if args.source.lower() == 'webcam':
+        test_on_webcam(args.model, args.class_mapping, args.sequence_length, args.confidence_threshold)
+    elif args.source.lower() == 'random':
+        test_on_random_video(args.model, args.class_mapping, args.sequence_length, args.confidence_threshold)
     else:
-        print("❌ Please specify --source (video file or 'webcam')")
-        print("\nExamples:")
-        print("  python test_action_recognition.py --source webcam")
+        test_on_video(args.model, args.class_mapping, args.source, args.output, args.sequence_length, args.confidence_threshold)
         print("  python test_action_recognition.py --source video.mp4 --output result.mp4")
 
 if __name__ == "__main__":
